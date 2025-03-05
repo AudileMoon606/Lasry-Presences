@@ -93,9 +93,8 @@
       background-color: #0056b3;
     }
     /* ============================
-       Styles de la facture (existant)
+       Styles de la Facturation
     ============================ */
-    /* Formulaire et aperçu de facture */
     .no-print {
       display: block;
       margin-bottom: 30px;
@@ -229,6 +228,30 @@
     #studentList li:hover {
       background-color: #f0f0f0;
     }
+    /* ============================
+       Styles pour l'impression
+    ============================ */
+    @media print {
+      @page { size: landscape; }
+      /* Masquer la navigation, les formulaires et les éléments non souhaités */
+      .nav-bar, .no-print, form, button.print-btn, #passwordOverlay {
+        display: none;
+      }
+      body {
+        background-color: #fff;
+        padding: 0;
+      }
+      .container {
+        box-shadow: none;
+        margin: 0;
+        width: 100%;
+      }
+      .invoice {
+        padding: 40px;
+        width: 100%;
+        border: none;
+      }
+    }
   </style>
 </head>
 <body>
@@ -307,6 +330,7 @@
         </div>
         <div class="invoice-date" id="previewDate"></div>
       </div>
+      <!-- Bouton visible à l'écran mais masqué lors de l'impression -->
       <button class="print-btn" onclick="printInvoice()">Imprimer en PDF</button>
     </div>
   </div>
@@ -395,7 +419,7 @@
     }
     
     /* ============================
-       Génération de facture (fonction existante)
+       Génération de facture
     ============================ */
     function generateInvoice() {
       const centre = document.getElementById('centre').value;
@@ -414,6 +438,7 @@
       const year = d.getFullYear();
       const month = ("0" + (d.getMonth()+1)).slice(-2);
       const day = ("0" + d.getDate()).slice(-2);
+      // Le numéro complet de facture est construit et sert aussi à renommer le document
       const fullInvoiceNumber = centre.charAt(0).toUpperCase() + "-" + year + "-" + month + "-" + day + "-" + invoiceInput;
       
       document.getElementById('previewInvoiceNumber').textContent = "No: " + fullInvoiceNumber;
@@ -427,10 +452,11 @@
       const dateStr = d.getDate() + " " + months[d.getMonth()] + " " + year;
       document.getElementById('previewDate').textContent = dateStr;
       
+      // Affecter le titre du document avec le numéro de facture pour le nom de fichier PDF
       document.title = fullInvoiceNumber;
       document.getElementById('invoicePreview').style.display = 'block';
       
-      // Si la facture est générée depuis une consultation de présences, on réinitialise les heures de l'étudiant
+      // Si la facture est générée depuis la section présence, on réinitialise les présences de l'étudiant
       if(currentStudentIndex !== null) {
         attendanceData.students[currentStudentIndex].attendances = [];
         saveAttendanceData();
@@ -619,7 +645,7 @@
       document.getElementById("centre").value = attendanceData.centerName;
       document.getElementById("studentName").value = student.name;
       document.getElementById("paymentAmount").value = total.toFixed(2);
-      // L'utilisateur complétera numéro de facture, nom du tuteur et raison du paiement
+      // L'utilisateur complétera le numéro de facture, le nom du tuteur et la raison du paiement
       showSection("invoiceSection");
       alert("Veuillez compléter les champs manquants (Numéro de facture, Nom du tuteur, Raison du paiement) puis cliquer sur 'Générer la facture'. Une fois la facture générée, les présences seront réinitialisées pour cet étudiant.");
     }
