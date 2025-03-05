@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Lasry Education - Facturation & Présences</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="manifest" href="manifest.json">
+  <style>
+    /* ============================
+       Styles Globaux
+    ============================ */
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f8f8f8;
+      margin: 0;
+      padding: 0;
+    }
+    .container {
+      max-width: 800px;
+      margin: 40px auto;
+      background-color: #fff;
+      border-radius: 5px;
+      padding: 20px 40px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+      position: relative;
+    }
+    /* ============================
+       Page de mot de passe
+    ============================ */
+    #passwordOverlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(135deg, #007BFF, #00A1FF);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+      opacity: 1;
+      transition: opacity 1s ease;
+    }
+    #passwordOverlay img {
+      max-width: 200px;
+      margin-bottom: 20px;
+    }
+    #passwordOverlay input {
+      padding: 10px;
+      font-size: 1em;
+      border: none;
+      border-radius: 3px;
+      margin-bottom: 15px;
+      width: 250px;
+      max-width: 80%;
+    }
+    #passwordOverlay button {
+      padding: 10px 20px;
+      font-size: 1em;
+      background-color: #fff;
+      color: #007BFF;
+      border: none;
+      border-radius: 3px;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+    }
+    #passwordOverlay button:hover {
+      background-color: #e0e0e0;
+    }
+    #errorMsg {
+      color: #ffdddd;
+      margin-top: 10px;
+      display: none;
+    }
+    /* ============================
+       Barre de navigation
+    ============================ */
+    .nav-bar {
+      text-align: center;
+      margin: 20px;
+    }
+    .nav-bar button {
+      margin: 0 10px;
+      padding: 10px 20px;
+      background-color: #007BFF;
+      color: #fff;
+      border: none;
+      border-radius: 3px;
+      cursor: pointer;
+    }
+    .nav-bar button.active {
+      background-color: #0056b3;
+    }
+    /* ============================
+       Styles de la facture (existant)
+    ============================ */
+    /* Formulaire et aperçu de facture */
+    .no-print {
+      display: block;
+      margin-bottom: 30px;
+    }
+    label {
+      display: block;
+      margin-top: 10px;
+      font-weight: bold;
+    }
+    input[type="text"], input[type="number"], select, textarea {
+      width: 100%;
+      padding: 8px;
+      margin-top: 5px;
+      box-sizing: border-box;
+      border: 1px solid #ccc;
+      border-radius: 3px;
+    }
+    button {
+      margin-top: 15px;
+      padding: 10px 15px;
+      background-color: #007BFF;
+      color: #fff;
+      border: none;
+      border-radius: 3px;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #0056b3;
+    }
+    .invoice {
+      margin-top: 30px;
+      padding: 40px;
+      border: 2px solid #007BFF;
+      border-radius: 5px;
+      position: relative;
+    }
+    .invoice-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      border-bottom: 2px solid #007BFF;
+      padding-bottom: 10px;
+      margin-bottom: 30px;
+    }
+    .left-header {
+      display: flex;
+      align-items: center;
+    }
+    .left-header img {
+      max-height: 80px;
+      margin-right: 15px;
+    }
+    .left-header h2 {
+      margin: 0;
+      color: #007BFF;
+    }
+    .right-header {
+      text-align: right;
+    }
+    .invoice-number {
+      font-size: 1.2em;
+      font-weight: bold;
+    }
+    .center-info {
+      font-size: 1em;
+      font-weight: bold;
+      margin-top: 5px;
+    }
+    .invoice-main {
+      margin-bottom: 30px;
+    }
+    .invoice-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    .invoice-row .left,
+    .invoice-row .right {
+      font-size: 1.5em;
+      font-weight: bold;
+    }
+    .invoice-reason {
+      margin-top: 10px;
+      font-size: 1em;
+      color: #333;
+    }
+    .invoice-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      border-top: 2px solid #007BFF;
+      padding-top: 20px;
+    }
+    .thank-you {
+      font-size: 1.2em;
+      color: #007BFF;
+    }
+    .signature {
+      font-family: "Brush Script MT", cursive;
+      font-size: 1.5em;
+      color: #333;
+      margin-top: 5px;
+    }
+    .invoice-date {
+      text-align: right;
+      font-size: 1em;
+      font-weight: bold;
+      color: #333;
+    }
+    .print-btn {
+      display: block;
+      margin-top: 20px;
+    }
+    /* ============================
+       Styles de la gestion des présences
+    ============================ */
+    #attendanceSection h2 {
+      margin-top: 20px;
+      color: #007BFF;
+    }
+    #studentList, #attendanceDetailsList {
+      list-style-type: none;
+      padding: 0;
+    }
+    #studentList li {
+      padding: 8px;
+      border-bottom: 1px solid #ccc;
+      cursor: pointer;
+    }
+    #studentList li:hover {
+      background-color: #f0f0f0;
+    }
+  </style>
+</head>
+<body>
+  <!-- Page de mot de passe -->
+  <div id="passwordOverlay">
+    <img src="https://static.wixstatic.com/media/a04e80_53c8f399ec0a49689ffda806b14459d9~mv2.png/v1/crop/x_0,y_541,w_3125,h_793/fill/w_803,h_204,al_c,q_85,usm_4.00_1.00_0.00,enc_auto/base_logo_transparent_background.png" alt="Logo Lasry Education">
+    <input type="password" id="passwordInput" placeholder="Entrez le mot de passe">
+    <button id="passwordButton">Entrer</button>
+    <p id="errorMsg">Mot de passe incorrect</p>
+  </div>
+  
+  <!-- Barre de navigation -->
+  <div class="nav-bar">
+    <button id="btnInvoice" class="active" onclick="showSection('invoiceSection')">Facturation</button>
+    <button id="btnAttendance" onclick="showSection('attendanceSection')">Présences</button>
+  </div>
+  
+  <!-- Section Facturation -->
+  <div id="invoiceSection" class="container">
+    <h1>Générateur de Factures - Lasry Education</h1>
+    <div class="no-print">
+      <form id="invoiceForm">
+        <label for="centre">Centre :</label>
+        <select id="centre" required>
+          <option value="">--Sélectionnez un centre--</option>
+          <option value="Laval">Laval</option>
+          <option value="Anjou">Anjou</option>
+          <option value="Acadie">Acadie</option>
+          <option value="West Island">West Island</option>
+        </select>
+        
+        <label for="invoiceNumber">Numéro de facture (ex: 001) :</label>
+        <input type="text" id="invoiceNumber" placeholder="ex: 001" required>
+        
+        <label for="studentName">Nom de l'élève :</label>
+        <input type="text" id="studentName" placeholder="Nom de l'élève" required>
+        
+        <label for="tutorName">Nom du tuteur :</label>
+        <input type="text" id="tutorName" placeholder="Nom du tuteur" required>
+        
+        <label for="paymentReason">Raison du paiement :</label>
+        <textarea id="paymentReason" rows="3" placeholder="Expliquer la raison du paiement" required></textarea>
+        
+        <label for="paymentAmount">Montant du paiement ($) :</label>
+        <input type="number" id="paymentAmount" placeholder="Montant en $" step="0.01" required>
+        
+        <button type="button" onclick="generateInvoice()">Générer la facture</button>
+      </form>
+    </div>
+    
+    <!-- Aperçu de la facture -->
+    <div id="invoicePreview" class="invoice" style="display:none;">
+      <div class="invoice-header">
+        <div class="left-header">
+          <img src="https://static.wixstatic.com/media/a04e80_53c8f399ec0a49689ffda806b14459d9~mv2.png/v1/crop/x_0,y_541,w_3125,h_793/fill/w_803,h_204,al_c,q_85,usm_4.00_1.00_0.00,enc_auto/base_logo_transparent_background.png" alt="Logo Lasry Education">
+          <h2>Facture</h2>
+        </div>
+        <div class="right-header">
+          <div class="invoice-number" id="previewInvoiceNumber"></div>
+          <div class="center-info" id="previewCentre"></div>
+        </div>
+      </div>
+      
+      <div class="invoice-main">
+        <div class="invoice-row">
+          <div class="left" id="previewStudentName"></div>
+          <div class="right" id="previewPaymentAmount"></div>
+        </div>
+        <div class="invoice-reason" id="previewPaymentReason"></div>
+      </div>
+      
+      <div class="invoice-footer">
+        <div class="footer-left">
+          <div class="thank-you">Merci de votre confiance,</div>
+          <div class="signature" id="previewTutorName"></div>
+        </div>
+        <div class="invoice-date" id="previewDate"></div>
+      </div>
+      <button class="print-btn" onclick="printInvoice()">Imprimer en PDF</button>
+    </div>
+  </div>
+  
+  <!-- Section Présences -->
+  <div id="attendanceSection" class="container" style="display:none;">
+    <h1>Gestion des Présences - Lasry Education</h1>
+    
+    <!-- Fichier JSON de présence -->
+    <div>
+      <h2>Fichier JSON de présence</h2>
+      <input type="file" id="jsonUpload" accept=".json">
+      <button onclick="loadJSON()">Charger le fichier JSON</button>
+      <button onclick="createNewJSON()">Créer un nouveau fichier JSON</button>
+      <button onclick="downloadJSON()">Télécharger le fichier JSON</button>
+      <p id="centerNameDisplay"></p>
+    </div>
+    
+    <!-- Liste des étudiants -->
+    <div>
+      <h2>Liste des étudiants</h2>
+      <ul id="studentList"></ul>
+    </div>
+    
+    <!-- Ajouter un étudiant -->
+    <div>
+      <h2>Ajouter un étudiant</h2>
+      <input type="text" id="newStudentName" placeholder="Nom de l'étudiant">
+      <button onclick="addStudent()">Ajouter</button>
+    </div>
+    
+    <!-- Ajouter une présence -->
+    <div>
+      <h2>Ajouter une présence</h2>
+      <label for="attendanceStudent">Étudiant :</label>
+      <select id="attendanceStudent"></select>
+      <label for="attendanceDate">Date :</label>
+      <input type="date" id="attendanceDate">
+      <label for="attendanceHours">Heures :</label>
+      <input type="number" id="attendanceHours" step="0.5" placeholder="Ex: 1.5">
+      <button onclick="addAttendance()">Ajouter la présence</button>
+    </div>
+    
+    <!-- Détails d'un étudiant -->
+    <div id="studentDetailsSection" style="display:none;">
+      <h2>Détails de présence pour <span id="detailStudentName"></span></h2>
+      <ul id="attendanceDetailsList"></ul>
+      <p>Total heures: <span id="totalHours"></span></p>
+      <button onclick="closeStudentDetails()">Retour</button>
+      <button onclick="generateInvoiceForStudent()">Générer la facture pour cet étudiant</button>
+    </div>
+  </div>
+  
+  <script>
+    /* ============================
+       Gestion de la page de mot de passe
+    ============================ */
+    document.getElementById("passwordButton").addEventListener("click", function(){
+      var password = document.getElementById("passwordInput").value;
+      if(password === "Lasry"){
+        var overlay = document.getElementById("passwordOverlay");
+        overlay.style.opacity = "0";
+        setTimeout(function(){
+          overlay.style.display = "none";
+        }, 1000);
+      } else {
+        var errorMsg = document.getElementById("errorMsg");
+        errorMsg.style.display = "block";
+        errorMsg.textContent = "Mot de passe incorrect";
+      }
+    });
+    document.getElementById("passwordInput").addEventListener("keypress", function(e){
+      if(e.key === "Enter"){
+         document.getElementById("passwordButton").click();
+      }
+    });
+    
+    /* ============================
+       Navigation entre sections
+    ============================ */
+    function showSection(sectionId) {
+      document.getElementById('invoiceSection').style.display = (sectionId === 'invoiceSection') ? 'block' : 'none';
+      document.getElementById('attendanceSection').style.display = (sectionId === 'attendanceSection') ? 'block' : 'none';
+      document.getElementById('btnInvoice').classList.toggle('active', sectionId==='invoiceSection');
+      document.getElementById('btnAttendance').classList.toggle('active', sectionId==='attendanceSection');
+    }
+    
+    /* ============================
+       Génération de facture (fonction existante)
+    ============================ */
+    function generateInvoice() {
+      const centre = document.getElementById('centre').value;
+      const invoiceInput = document.getElementById('invoiceNumber').value;
+      const studentName = document.getElementById('studentName').value;
+      const tutorName = document.getElementById('tutorName').value;
+      const paymentReason = document.getElementById('paymentReason').value;
+      const paymentAmount = document.getElementById('paymentAmount').value;
+      
+      if (!centre || !invoiceInput || !studentName || !tutorName || !paymentReason || !paymentAmount) {
+        alert("Veuillez remplir tous les champs.");
+        return;
+      }
+      
+      const d = new Date();
+      const year = d.getFullYear();
+      const month = ("0" + (d.getMonth()+1)).slice(-2);
+      const day = ("0" + d.getDate()).slice(-2);
+      const fullInvoiceNumber = centre.charAt(0).toUpperCase() + "-" + year + "-" + month + "-" + day + "-" + invoiceInput;
+      
+      document.getElementById('previewInvoiceNumber').textContent = "No: " + fullInvoiceNumber;
+      document.getElementById('previewStudentName').textContent = studentName;
+      document.getElementById('previewPaymentAmount').textContent = "$ " + parseFloat(paymentAmount).toFixed(2);
+      document.getElementById('previewPaymentReason').textContent = paymentReason;
+      document.getElementById('previewTutorName').textContent = tutorName;
+      document.getElementById('previewCentre').textContent = centre;
+      
+      const months = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
+      const dateStr = d.getDate() + " " + months[d.getMonth()] + " " + year;
+      document.getElementById('previewDate').textContent = dateStr;
+      
+      document.title = fullInvoiceNumber;
+      document.getElementById('invoicePreview').style.display = 'block';
+      
+      // Si la facture est générée depuis une consultation de présences, on réinitialise les heures de l'étudiant
+      if(currentStudentIndex !== null) {
+        attendanceData.students[currentStudentIndex].attendances = [];
+        saveAttendanceData();
+        updateStudentList();
+      }
+    }
+    
+    function printInvoice() {
+      window.print();
+    }
+    
+    /* ============================
+       Gestion des présences
+    ============================ */
+    let attendanceData = null;
+    let currentStudentIndex = null; // Index de l'étudiant sélectionné pour la facture
+    
+    // Chargement depuis localStorage au démarrage
+    window.onload = function() {
+      const storedData = localStorage.getItem("attendanceData");
+      if(storedData) {
+        attendanceData = JSON.parse(storedData);
+        document.getElementById("centerNameDisplay").textContent = "Centre: " + attendanceData.centerName;
+        updateStudentList();
+        updateAttendanceStudentDropdown();
+      }
+    }
+    
+    function saveAttendanceData() {
+      localStorage.setItem("attendanceData", JSON.stringify(attendanceData));
+    }
+    
+    // Charger un fichier JSON
+    function loadJSON() {
+      const fileInput = document.getElementById("jsonUpload");
+      if(fileInput.files.length === 0) {
+        alert("Veuillez sélectionner un fichier JSON.");
+        return;
+      }
+      const file = fileInput.files[0];
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          attendanceData = JSON.parse(e.target.result);
+          if(!attendanceData.centerName) attendanceData.centerName = file.name.replace(".json", "");
+          document.getElementById("centerNameDisplay").textContent = "Centre: " + attendanceData.centerName;
+          saveAttendanceData();
+          updateStudentList();
+          updateAttendanceStudentDropdown();
+        } catch(err) {
+          alert("Erreur lors du chargement du fichier JSON.");
+        }
+      };
+      reader.readAsText(file);
+    }
+    
+    // Créer un nouveau fichier JSON
+    function createNewJSON() {
+      const centerName = prompt("Entrez le nom du centre pour le nouveau fichier JSON:");
+      if(centerName) {
+        attendanceData = { centerName: centerName, students: [] };
+        document.getElementById("centerNameDisplay").textContent = "Centre: " + centerName;
+        saveAttendanceData();
+        updateStudentList();
+        updateAttendanceStudentDropdown();
+      }
+    }
+    
+    // Télécharger le JSON modifié
+    function downloadJSON() {
+      if(!attendanceData) {
+        alert("Aucune donnée à télécharger.");
+        return;
+      }
+      const dataStr = JSON.stringify(attendanceData, null, 2);
+      const blob = new Blob([dataStr], {type: "application/json"});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = (attendanceData.centerName || "attendance") + ".json";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }
+    
+    // Mettre à jour la liste des étudiants
+    function updateStudentList() {
+      const list = document.getElementById("studentList");
+      list.innerHTML = "";
+      if(attendanceData && attendanceData.students) {
+        attendanceData.students.forEach((student, index) => {
+          const li = document.createElement("li");
+          // Calcul du total d'heures
+          const total = student.attendances.reduce((sum, att) => sum + parseFloat(att.hours), 0);
+          li.textContent = student.name + " - Total heures: " + total.toFixed(2);
+          li.onclick = function() { showStudentDetails(index); };
+          list.appendChild(li);
+        });
+      }
+    }
+    
+    // Mettre à jour le dropdown pour ajouter une présence
+    function updateAttendanceStudentDropdown() {
+      const dropdown = document.getElementById("attendanceStudent");
+      dropdown.innerHTML = "";
+      if(attendanceData && attendanceData.students) {
+        attendanceData.students.forEach((student, index) => {
+          const option = document.createElement("option");
+          option.value = index;
+          option.textContent = student.name;
+          dropdown.appendChild(option);
+        });
+      }
+    }
+    
+    // Ajouter un nouvel étudiant
+    function addStudent() {
+      const name = document.getElementById("newStudentName").value.trim();
+      if(!name) {
+        alert("Veuillez entrer un nom.");
+        return;
+      }
+      if(!attendanceData) {
+        alert("Veuillez d'abord charger ou créer un fichier JSON.");
+        return;
+      }
+      attendanceData.students.push({ name: name, attendances: [] });
+      saveAttendanceData();
+      updateStudentList();
+      updateAttendanceStudentDropdown();
+      document.getElementById("newStudentName").value = "";
+    }
+    
+    // Ajouter une présence pour un étudiant
+    function addAttendance() {
+      const studentIndex = document.getElementById("attendanceStudent").value;
+      const date = document.getElementById("attendanceDate").value;
+      const hours = document.getElementById("attendanceHours").value;
+      if(studentIndex === "" || !date || !hours) {
+        alert("Veuillez remplir tous les champs pour la présence.");
+        return;
+      }
+      if(!attendanceData) {
+        alert("Veuillez d'abord charger ou créer un fichier JSON.");
+        return;
+      }
+      attendanceData.students[studentIndex].attendances.push({ date: date, hours: parseFloat(hours) });
+      saveAttendanceData();
+      updateStudentList();
+      updateAttendanceStudentDropdown();
+      document.getElementById("attendanceDate").value = "";
+      document.getElementById("attendanceHours").value = "";
+    }
+    
+    // Afficher les détails de présence d'un étudiant
+    function showStudentDetails(index) {
+      currentStudentIndex = index;
+      const student = attendanceData.students[index];
+      document.getElementById("detailStudentName").textContent = student.name;
+      const detailsList = document.getElementById("attendanceDetailsList");
+      detailsList.innerHTML = "";
+      student.attendances.forEach(att => {
+        const li = document.createElement("li");
+        li.textContent = att.date + " - " + att.hours + " heure(s)";
+        detailsList.appendChild(li);
+      });
+      const total = student.attendances.reduce((sum, att) => sum + parseFloat(att.hours), 0);
+      document.getElementById("totalHours").textContent = total.toFixed(2);
+      document.getElementById("studentDetailsSection").style.display = "block";
+    }
+    
+    function closeStudentDetails() {
+      currentStudentIndex = null;
+      document.getElementById("studentDetailsSection").style.display = "none";
+    }
+    
+    // Générer une facture pour l'étudiant sélectionné à partir de ses présences
+    function generateInvoiceForStudent() {
+      if(currentStudentIndex === null) {
+        alert("Veuillez sélectionner un étudiant.");
+        return;
+      }
+      const student = attendanceData.students[currentStudentIndex];
+      const total = student.attendances.reduce((sum, att) => sum + parseFloat(att.hours), 0);
+      // Pré-remplissage du formulaire de facture
+      document.getElementById("centre").value = attendanceData.centerName;
+      document.getElementById("studentName").value = student.name;
+      document.getElementById("paymentAmount").value = total.toFixed(2);
+      // L'utilisateur complétera numéro de facture, nom du tuteur et raison du paiement
+      showSection("invoiceSection");
+      alert("Veuillez compléter les champs manquants (Numéro de facture, Nom du tuteur, Raison du paiement) puis cliquer sur 'Générer la facture'. Une fois la facture générée, les présences seront réinitialisées pour cet étudiant.");
+    }
+  </script>
+</body>
+</html>
