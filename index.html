@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <title>Lasry Education - Facturation & Présences</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <!-- Pour activer le mode application sur mobile -->
+  <!-- PWA & mobile -->
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -101,7 +101,7 @@
     /* ============================
        Styles de la Facturation
     ============================ */
-    /* Le titre ne doit pas être imprimé */
+    /* Le titre ne sera pas imprimé */
     .no-print {
       display: block;
     }
@@ -214,11 +214,11 @@
       font-weight: bold;
       color: #333;
     }
-    .print-btn {
+    .print-btn, .detail-btn {
       display: block;
       margin-top: 20px;
     }
-    /* Zone d’aide pour la raison de paiement (visible uniquement à l’écran) */
+    /* Zone d’aide pour la raison (visible uniquement à l’écran) */
     #paymentReasonHelper {
       display: block;
       color: #666;
@@ -251,8 +251,7 @@
         size: landscape; 
         margin: 0;
       }
-      /* Masquer la navigation, les formulaires et les éléments non souhaités */
-      .nav-bar, .no-print, form, button.print-btn, #passwordOverlay, #paymentReasonHelper {
+      .nav-bar, .no-print, form, button.print-btn, button.detail-btn, #passwordOverlay, #paymentReasonHelper {
         display: none;
       }
       body {
@@ -308,7 +307,7 @@
   
   <!-- Section Facturation -->
   <div id="invoiceSection" class="container">
-    <!-- Ce titre est masqué lors de l'impression -->
+    <!-- Ce titre n'est pas imprimé -->
     <h1 class="no-print">Générateur de Factures - Lasry Education</h1>
     <div class="no-print">
       <form id="invoiceForm">
@@ -330,16 +329,23 @@
         <label for="tutorName">Nom du tuteur :</label>
         <input type="text" id="tutorName" placeholder="Nom du tuteur" required>
         
-        <!-- Nouveau champ pour le taux horaire -->
-        <label for="rate">Taux horaire ($/h) :</label>
-        <input type="number" id="rate" step="0.01" value="22.50" required>
+        <!-- Choix du mode de facturation -->
+        <label>Mode de facturation :</label>
+        <label><input type="radio" name="billingMode" value="taux" checked> Calculer avec taux horaire</label>
+        <label><input type="radio" name="billingMode" value="prix"> Entrer le montant directement</label>
+        
+        <!-- Champs pour mode taux horaire -->
+        <div id="tauxSection">
+          <label for="rate">Taux horaire ($/h) :</label>
+          <input type="number" id="rate" step="0.01" value="22.50" required>
+        </div>
         
         <label for="paymentAmount">Montant du paiement ($) :</label>
         <input type="number" id="paymentAmount" placeholder="Montant en $" step="0.01" required>
         
         <label for="paymentReason">Raison du paiement :</label>
         <textarea id="paymentReason" rows="3" placeholder="Renseignez ici la raison du paiement" required></textarea>
-        <!-- Zone d’aide (non imprimée) pour renseigner la raison -->
+        <!-- Zone d’aide pour renseigner la raison (non imprimée) -->
         <small id="paymentReasonHelper" class="no-print"></small>
         
         <button type="button" onclick="generateInvoice()">Générer la facture</button>
@@ -374,8 +380,11 @@
         </div>
         <div class="invoice-date" id="previewDate"></div>
       </div>
-      <!-- Bouton visible sur écran, masqué en impression -->
-      <button class="print-btn" onclick="printInvoice()">Imprimer en PDF</button>
+      <!-- Boutons pour impression et facture détaillée (non imprimés) -->
+      <button class="print-btn no-print" onclick="printInvoice()">Imprimer en PDF</button>
+      <button class="detail-btn no-print" onclick="showDetailedInvoice()">Afficher facture détaillée</button>
+      <!-- Section détaillée (sera affichée après clic sur le bouton) -->
+      <div id="detailedInvoiceSection" style="display:none; margin-top:20px; border-top:1px dashed #007BFF; padding-top:10px;"></div>
     </div>
   </div>
   
@@ -463,10 +472,35 @@
     }
     
     /* ============================
+       Mise à jour du mode de facturation
+    ============================ */
+    // Désactive ou active le champ taux en fonction du mode sélectionné
+    function updateBillingMode() {
+      const mode = document.querySelector('input[name="billingMode"]:checked').value;
+      if(mode === "taux") {
+        document.getElementById("rate").disabled = false;
+        // On recalcule le montant si une valeur de heures est stockée
+        if(window._computedInvoiceHours) {
+          const rate = parseFloat(document.getElementById("rate").value) || 22.50;
+          document.getElementById("paymentAmount").value = (window._computedInvoiceHours * rate).toFixed(2);
+        }
+      } else {
+        document.getElementById("rate").disabled = true;
+      }
+    }
+    document.querySelectorAll('input[name="billingMode"]').forEach(radio => {
+      radio.addEventListener("change", updateBillingMode);
+    });
+    document.getElementById("rate").addEventListener("input", updateBillingMode);
+    
+    /* ============================
        Génération de facture (manuelle ou via présences)
     ============================ */
     // Stockage temporaire du total d'heures calculé pour la facture
     window._computedInvoiceHours = 0;
+    // Stockage détaillé des présences depuis le dernier paiement
+    window._detailedAttendance = [];
+    window._lastPaymentDate = "";
     
     function generateInvoice() {
       const centre = document.getElementById('centre').value;
@@ -490,7 +524,6 @@
       document.getElementById('previewInvoiceNumber').textContent = "No: " + fullInvoiceNumber;
       document.getElementById('previewStudentName').textContent = studentName;
       document.getElementById('previewPaymentAmount').textContent = "$ " + parseFloat(paymentAmount).toFixed(2);
-      // La zone de raison imprimée sera celle saisie par l'usager
       document.getElementById('previewPaymentReason').textContent = paymentReason;
       document.getElementById('previewTutorName').textContent = tutorName;
       document.getElementById('previewCentre').textContent = centre;
@@ -508,7 +541,7 @@
         let student = attendanceData.students[currentStudentIndex];
         student.lastPayment = { 
           date: d.toISOString(), 
-          amount: paymentAmount, 
+          amount: document.getElementById("paymentAmount").value, 
           hoursCounted: window._computedInvoiceHours 
         };
         currentStudentIndex = null;
@@ -519,6 +552,30 @@
     
     function printInvoice() {
       window.print();
+    }
+    
+    /* ============================
+       Affichage de la facture détaillée
+    ============================ */
+    function showDetailedInvoice() {
+      const detailDiv = document.getElementById("detailedInvoiceSection");
+      let html = "<h3>Détail des présences</h3>";
+      if(window._lastPaymentDate) {
+        html += "<p>Dernier paiement : " + new Date(window._lastPaymentDate).toLocaleDateString('fr-FR', { day:'numeric', month:'long', year:'numeric' }) + "</p>";
+      } else {
+        html += "<p>Aucun paiement antérieur.</p>";
+      }
+      if(window._detailedAttendance.length > 0) {
+        html += "<table style='width:100%; border-collapse: collapse;'><thead><tr><th style='border:1px solid #007BFF; padding:5px;'>Date</th><th style='border:1px solid #007BFF; padding:5px;'>Heures</th></tr></thead><tbody>";
+        window._detailedAttendance.forEach(record => {
+          html += "<tr><td style='border:1px solid #007BFF; padding:5px;'>" + record.date + "</td><td style='border:1px solid #007BFF; padding:5px;'>" + record.hours + "</td></tr>";
+        });
+        html += "</tbody></table>";
+      } else {
+        html += "<p>Aucune présence enregistrée depuis le dernier paiement.</p>";
+      }
+      detailDiv.innerHTML = html;
+      detailDiv.style.display = "block";
     }
     
     /* ============================
@@ -602,7 +659,6 @@
       if(attendanceData && attendanceData.students) {
         attendanceData.students.forEach((student, index) => {
           const li = document.createElement("li");
-          // Seules les présences postérieures au dernier paiement sont cumulées
           let lastPayDate = student.lastPayment ? new Date(student.lastPayment.date) : new Date(0);
           let hoursSinceLast = 0;
           student.attendances.forEach(att => {
@@ -705,30 +761,38 @@
       const student = attendanceData.students[currentStudentIndex];
       let lastPayDate = student.lastPayment ? new Date(student.lastPayment.date) : new Date(0);
       let hoursSinceLast = 0;
+      let detailed = [];
       student.attendances.forEach(att => {
         let attDate = new Date(att.date);
-        if(attDate > lastPayDate) hoursSinceLast += parseFloat(att.hours);
+        if(attDate > lastPayDate) { 
+          hoursSinceLast += parseFloat(att.hours);
+          detailed.push(att);
+        }
       });
+      window._computedInvoiceHours = hoursSinceLast;
+      window._detailedAttendance = detailed;
+      window._lastPaymentDate = student.lastPayment ? student.lastPayment.date : null;
       
-      // Récupérer le taux horaire choisi (par défaut 22,50)
-      const rate = parseFloat(document.getElementById("rate").value) || 22.50;
-      // Calculer le montant automatiquement
-      document.getElementById("paymentAmount").value = (hoursSinceLast * rate).toFixed(2);
+      // Récupérer le mode sélectionné
+      const mode = document.querySelector('input[name="billingMode"]:checked').value;
+      if(mode === "taux") {
+        const rate = parseFloat(document.getElementById("rate").value) || 22.50;
+        document.getElementById("paymentAmount").value = (hoursSinceLast * rate).toFixed(2);
+      } else {
+        // En mode prix, laisser le montant saisi par l'usager (si renseigné)
+      }
       
-      // Ne pas préremplir la raison de paiement, mais afficher un texte d'aide en dessous
-      document.getElementById("paymentReason").value = "";
+      // La zone de saisie de la raison reste vide pour l'utilisateur,
+      // mais on affiche en aide (hors impression) les infos détaillées
       let helperText = "";
-      if(student.lastPayment) {
-        const lastPayDateStr = new Date(student.lastPayment.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
-        helperText = "Dernier paiement le " + lastPayDateStr + " pour " + student.lastPayment.hoursCounted + " heures, montant: $" + parseFloat(student.lastPayment.amount).toFixed(2) + ". ";
+      if(window._lastPaymentDate) {
+        const lastPayDateStr = new Date(window._lastPaymentDate).toLocaleDateString('fr-FR', { day:'numeric', month:'long', year:'numeric' });
+        helperText = "Dernier paiement le " + lastPayDateStr + " pour " + (student.lastPayment.hoursCounted || 0) + " heures, montant: $" + parseFloat(student.lastPayment.amount).toFixed(2) + ". ";
       } else {
         helperText = "Aucun paiement antérieur. ";
       }
       helperText += "Heures depuis le dernier paiement: " + hoursSinceLast.toFixed(2) + " heures.";
       document.getElementById("paymentReasonHelper").textContent = helperText;
-      
-      // Stocker le total d'heures calculé pour mise à jour lors de la génération de la facture
-      window._computedInvoiceHours = hoursSinceLast;
       
       // Pré-remplir les autres champs
       document.getElementById("centre").value = attendanceData.centerName;
@@ -736,7 +800,7 @@
       
       // Afficher la section de facturation pour compléter (numéro de facture et nom du tuteur)
       showSection("invoiceSection");
-      alert("Veuillez compléter les champs manquants (Numéro de facture et Nom du tuteur). Le montant facturé correspond aux heures depuis le dernier paiement multiplié par le taux horaire.");
+      alert("Veuillez compléter les champs manquants (Numéro de facture et Nom du tuteur). Le montant est calculé en mode taux ou entré directement selon votre choix.");
     }
   </script>
 </body>
