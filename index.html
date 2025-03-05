@@ -101,9 +101,12 @@
     /* ============================
        Styles de la Facturation
     ============================ */
+    /* Le titre ne doit pas être imprimé */
     .no-print {
       display: block;
-      margin-bottom: 30px;
+    }
+    .no-print.print-hidden {
+      display: none;
     }
     label {
       display: block;
@@ -215,6 +218,12 @@
       display: block;
       margin-top: 20px;
     }
+    /* Zone d’aide pour la raison de paiement (visible uniquement à l’écran) */
+    #paymentReasonHelper {
+      display: block;
+      color: #666;
+      margin-top: 5px;
+    }
     /* ============================
        Styles de la gestion des présences
     ============================ */
@@ -240,10 +249,10 @@
     @media print {
       @page { 
         size: landscape; 
-        margin: 0; /* Essaye de supprimer le header/footer du navigateur */
+        margin: 0;
       }
       /* Masquer la navigation, les formulaires et les éléments non souhaités */
-      .nav-bar, .no-print, form, button.print-btn, #passwordOverlay {
+      .nav-bar, .no-print, form, button.print-btn, #passwordOverlay, #paymentReasonHelper {
         display: none;
       }
       body {
@@ -258,7 +267,6 @@
       .invoice {
         padding: 40px;
         width: 100%;
-        /* Conserver la bordure bleue */
         border: 2px solid #007BFF;
       }
     }
@@ -300,7 +308,8 @@
   
   <!-- Section Facturation -->
   <div id="invoiceSection" class="container">
-    <h1>Générateur de Factures - Lasry Education</h1>
+    <!-- Ce titre est masqué lors de l'impression -->
+    <h1 class="no-print">Générateur de Factures - Lasry Education</h1>
     <div class="no-print">
       <form id="invoiceForm">
         <label for="centre">Centre :</label>
@@ -321,11 +330,17 @@
         <label for="tutorName">Nom du tuteur :</label>
         <input type="text" id="tutorName" placeholder="Nom du tuteur" required>
         
-        <label for="paymentReason">Raison du paiement :</label>
-        <textarea id="paymentReason" rows="3" placeholder="Expliquer la raison du paiement" required></textarea>
+        <!-- Nouveau champ pour le taux horaire -->
+        <label for="rate">Taux horaire ($/h) :</label>
+        <input type="number" id="rate" step="0.01" value="22.50" required>
         
         <label for="paymentAmount">Montant du paiement ($) :</label>
         <input type="number" id="paymentAmount" placeholder="Montant en $" step="0.01" required>
+        
+        <label for="paymentReason">Raison du paiement :</label>
+        <textarea id="paymentReason" rows="3" placeholder="Renseignez ici la raison du paiement" required></textarea>
+        <!-- Zone d’aide (non imprimée) pour renseigner la raison -->
+        <small id="paymentReasonHelper" class="no-print"></small>
         
         <button type="button" onclick="generateInvoice()">Générer la facture</button>
       </form>
@@ -450,7 +465,7 @@
     /* ============================
        Génération de facture (manuelle ou via présences)
     ============================ */
-    // Variable temporaire pour stocker le total calculé (cas facture élève)
+    // Stockage temporaire du total d'heures calculé pour la facture
     window._computedInvoiceHours = 0;
     
     function generateInvoice() {
@@ -475,6 +490,7 @@
       document.getElementById('previewInvoiceNumber').textContent = "No: " + fullInvoiceNumber;
       document.getElementById('previewStudentName').textContent = studentName;
       document.getElementById('previewPaymentAmount').textContent = "$ " + parseFloat(paymentAmount).toFixed(2);
+      // La zone de raison imprimée sera celle saisie par l'usager
       document.getElementById('previewPaymentReason').textContent = paymentReason;
       document.getElementById('previewTutorName').textContent = tutorName;
       document.getElementById('previewCentre').textContent = centre;
@@ -483,20 +499,18 @@
       const dateStr = d.getDate() + " " + monthsArr[d.getMonth()] + " " + year;
       document.getElementById('previewDate').textContent = dateStr;
       
-      // Affecter le titre du document avec le numéro de facture pour le nom de fichier PDF
+      // Affecter le titre du document avec le numéro de facture (pour le nom du PDF)
       document.title = fullInvoiceNumber;
       document.getElementById('invoicePreview').style.display = 'block';
       
-      // Si la facture est générée à partir d'un étudiant, mettre à jour son dernier paiement
+      // Si la facture est générée depuis un étudiant, mettre à jour son dernier paiement
       if(currentStudentIndex !== null) {
         let student = attendanceData.students[currentStudentIndex];
-        // Utiliser la valeur calculée stockée dans window._computedInvoiceHours
         student.lastPayment = { 
-          date: dateStr, 
+          date: d.toISOString(), 
           amount: paymentAmount, 
           hoursCounted: window._computedInvoiceHours 
         };
-        // Réinitialiser l'index pour éviter une double mise à jour
         currentStudentIndex = null;
         saveAttendanceData();
         updateStudentList();
@@ -588,7 +602,7 @@
       if(attendanceData && attendanceData.students) {
         attendanceData.students.forEach((student, index) => {
           const li = document.createElement("li");
-          // Pour le décompte, seules les présences postérieures au dernier paiement sont cumulées
+          // Seules les présences postérieures au dernier paiement sont cumulées
           let lastPayDate = student.lastPayment ? new Date(student.lastPayment.date) : new Date(0);
           let hoursSinceLast = 0;
           student.attendances.forEach(att => {
@@ -627,7 +641,6 @@
         alert("Veuillez d'abord charger ou créer un fichier JSON.");
         return;
       }
-      // Ajouter un champ lastPayment vide initialement
       attendanceData.students.push({ name: name, attendances: [], lastPayment: null });
       saveAttendanceData();
       updateStudentList();
@@ -668,7 +681,6 @@
         li.textContent = att.date + " - " + att.hours + " heure(s)";
         detailsList.appendChild(li);
       });
-      // Calculer le total des heures depuis le dernier paiement
       let lastPayDate = student.lastPayment ? new Date(student.lastPayment.date) : new Date(0);
       let hoursSinceLast = 0;
       student.attendances.forEach(att => {
@@ -691,7 +703,6 @@
         return;
       }
       const student = attendanceData.students[currentStudentIndex];
-      // Définir la date de référence du dernier paiement
       let lastPayDate = student.lastPayment ? new Date(student.lastPayment.date) : new Date(0);
       let hoursSinceLast = 0;
       student.attendances.forEach(att => {
@@ -699,28 +710,33 @@
         if(attDate > lastPayDate) hoursSinceLast += parseFloat(att.hours);
       });
       
-      // Pré-remplissage du formulaire de facture
-      document.getElementById("centre").value = attendanceData.centerName;
-      document.getElementById("studentName").value = student.name;
-      // Le montant est automatiquement calculé en fonction des heures depuis le dernier paiement
-      document.getElementById("paymentAmount").value = hoursSinceLast.toFixed(2);
+      // Récupérer le taux horaire choisi (par défaut 22,50)
+      const rate = parseFloat(document.getElementById("rate").value) || 22.50;
+      // Calculer le montant automatiquement
+      document.getElementById("paymentAmount").value = (hoursSinceLast * rate).toFixed(2);
       
-      // Construire la description avec les informations du dernier paiement, si existant
-      let reason = "";
+      // Ne pas préremplir la raison de paiement, mais afficher un texte d'aide en dessous
+      document.getElementById("paymentReason").value = "";
+      let helperText = "";
       if(student.lastPayment) {
-        reason = "Dernier paiement le " + student.lastPayment.date + " pour " + student.lastPayment.hoursCounted + " heures, montant: $" + parseFloat(student.lastPayment.amount).toFixed(2) + ". ";
+        const lastPayDateStr = new Date(student.lastPayment.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+        helperText = "Dernier paiement le " + lastPayDateStr + " pour " + student.lastPayment.hoursCounted + " heures, montant: $" + parseFloat(student.lastPayment.amount).toFixed(2) + ". ";
       } else {
-        reason = "Aucun paiement antérieur. ";
+        helperText = "Aucun paiement antérieur. ";
       }
-      reason += "Heures depuis le dernier paiement: " + hoursSinceLast.toFixed(2) + " heures.";
-      document.getElementById("paymentReason").value = reason;
+      helperText += "Heures depuis le dernier paiement: " + hoursSinceLast.toFixed(2) + " heures.";
+      document.getElementById("paymentReasonHelper").textContent = helperText;
       
-      // Stocker temporairement le total calculé pour mise à jour lors de la génération effective de la facture
+      // Stocker le total d'heures calculé pour mise à jour lors de la génération de la facture
       window._computedInvoiceHours = hoursSinceLast;
       
-      // Afficher la section facturation pour compléter (numéro de facture, nom du tuteur)
+      // Pré-remplir les autres champs
+      document.getElementById("centre").value = attendanceData.centerName;
+      document.getElementById("studentName").value = student.name;
+      
+      // Afficher la section de facturation pour compléter (numéro de facture et nom du tuteur)
       showSection("invoiceSection");
-      alert("Veuillez compléter les champs manquants (Numéro de facture et Nom du tuteur), puis cliquer sur 'Générer la facture'. Le montant facturé correspond aux heures depuis le dernier paiement.");
+      alert("Veuillez compléter les champs manquants (Numéro de facture et Nom du tuteur). Le montant facturé correspond aux heures depuis le dernier paiement multiplié par le taux horaire.");
     }
   </script>
 </body>
